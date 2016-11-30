@@ -1,0 +1,64 @@
+
+
+  Make a yaml
+  type: object
+  properties:
+    type:
+      type: integer
+      description: 2=reject, 3=approve
+    orderLineId:
+      type: string
+      description: orderLineId
+    message:
+      type: string
+      description: Optional message to send with review
+    status:
+      type: integer
+      description: No description provided
+    cpm:
+      type: number
+      description: Cost per mil
+    campaign:
+      description: Parent Campaign Details (copy)
+  required:
+  - type
+  - orderLineId
+
+    ✓ Makes a yaml
+- name: type
+  in: undefined
+  type: integer
+  description: 2=reject, 3=approve
+  required: true
+  enum: [2,3]
+- name: orderLineId
+  in: undefined
+  type: string
+  description: orderLineId
+  required: true
+- name: message
+  in: undefined
+  type: string
+  description: Optional message to send with review
+- name: status
+  in: undefined
+  type: integer
+  description: No description provided
+  enum: [one,shoe]
+- name: orgIdToReview
+  in: undefined
+  type: string
+  description: Org Id required to Review Next
+- name: cpm
+  in: undefined
+  type: number
+  description: Cost per mil
+- name: campaign
+  in: undefined
+  description: Parent Campaign Details (copy)
+
+    ✓ Makes a param
+
+
+  2 passing (8ms)
+

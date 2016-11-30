@@ -1,0 +1,54 @@
+{
+  "parser": "babel-eslint",
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "settings": {
+    "ecmascript": 6
+  },
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": [
+    "import"
+  ],
+  "extends": [
+    "airbnb/base"
+  ],
+  "globals": {
+    "$": false,
+    "Accounts": false,
+    "Bert": false,
+    "browser": false,
+    "expect": false,
+    "Factory": false,
+    "Meteor": false,
+    "Roles": false,
+    "server": false,
+    "SimpleSchema": false,
+    "ValidatedMethod": false
+  },
+  "rules": {
+    "indent": [2, 2],
+    "quotes": [2, "single"],
+    "linebreak-style": [2, "unix"],
+    "semi": [2, "always"],
+    "strict": 0,
+    "no-unused-vars": 0,
+    "camelcase": 0,
+    "import/no-unresolved": [2, { commonjs: true, amd: true, ignore: ["^meteor/"] }],
+    "import/no-extraneous-dependencies": 0,
+    "import/named": 2,
+    "import/namespace": 2,
+    "import/export": 2,
+    "new-cap": 0,
+    "no-console": 0,
+    "no-comma-dangle": 0,
+    "no-param-reassign": 0,
+    "no-underscore-dangle": 0,
+    "no-return-assign": 0
+  }
+}

@@ -1,175 +1,146 @@
 import _ from 'lodash';
 
-export default class YamlSchema{
-  constructor(schema) {
-    this.schema = schema;
-    this.context = {};
-  }
+export const delLast = (str) => str.slice(0, str.slice(0, -1).lastIndexOf('\n')) + '\n';
+export const lastLine = (str) => str.slice(str.slice(0, -1).lastIndexOf('\n') + 1, -1);
 
-  ind(x) {return Array(x + 1).join(' ');}
+const ind = (x) => Array(x + 1).join(' ');
 
-  line(t, content) {
-    return `${this.ind(t)}${content}\n`;
-  }
+const line = (t, content) => `${ind(t)}${content}\n`;
 
-  getSimpleType(key, typeFun, t) {
-    if (typeFun.name == 'Number') {
-      return this.line(t, `type: ${this.schema[key].decimal ? `number` : `integer`}`);
+export const writeYamlSchema = (t, config, name) => {
+  let out = '';
+  out += line(t, `${name}:`);
+  out += writeProps(t + 2, config);
+  const required = [];
+  _.keys(config).forEach((key) => {
+    if (!config[key].optional) {
+      required.push(key)
     }
-    if (typeFun.name == 'Date') {
-      let out = this.line(t, `type: string`);
-      out += this.line(t, `format: date-time`);
-      return out;
+  });
+  out += line(t + 2, 'required:');
+  required.forEach((req) => {
+    out += line(t + 2, `- ${req}`);
+  });
+  return out;
+};
+
+export const writeProps = (t, config) => {
+  let out = '';
+  out += line(t, 'type: object');
+  out += line(t, 'properties:');
+  _.keys(config).forEach((key) => {
+    if (config[key] &&   // non empty
+        !key.includes('.') && // not a subprop
+        !_.has(config[key], 'blackbox') && // not a blackbox
+        !config[key].hidden &&
+        !config[key].hiddenAPI) {  // not hidden
+      out += line(t + 2, `${key}:`);
+      out += obj2Yaml(t + 4, config[key]);
     }
-    else {
-      return this.line(t, `type: ${_.toLower(typeFun.name)}`);
-    }
+  });
+  return out;
+};
+
+const obj2Yaml = (t, object) => {
+  let out = ymlType(t, object);
+  out += line(t, `description: ${getLabel(object)}`);
+
+  if (_.has(object, 'help')) {
+    out += line(t, 'additionalProperties:');
+    out += line(t + 2, 'type: string');
+  }
+  return out;
+};
+
+const getLabel = (object) => object.label || 'No description provided';
+
+const ymlType = (t, object) => {
+  let out = '';
+  const type = getType(object);
+  if (type === 'array') {
+    out += line(t, 'type: array');
+    out += line(t, 'items:');
+    out += ymlType(t + 2, _.extend(object, { type: object.type[0] }));
+  } else if (type === 'date') {
+    out += line(t, 'type: string');
+    out += line(t, 'format: date');
+  } else if (type === 'object') {
+    out += writeProps(t, object.type);
+  } else {
+    out += line(t, `type: ${type}`);
+  }
+  if (object.allowedValues) {
+    out += line(t, `enum: ${printArray(object.allowedValues)}`);
+  }
+  return out;
+};
+
+const getType = (object) => {
+  console.log('OBJ: ', object);
+  const simpleTypes = [String, Number, Boolean, Date];
+
+  // simple
+  if (simpleTypes.indexOf(object.type) >= 0) {
+    return getSimpleType(object);
   }
 
-  getArrayType(key, typeFun, t) {
-    let out = ``
-    out += this.line(t, `type: array`);
-    out += this.line(t, `items:`);
-    //if (typeFun.name =='Object') {
-      //out += this.getBlackboxType(key, t + 2)
-    //}
-    //else {
-      //out += this.getPropType(key, typeFun[0], t + 2);
-    //}
-    out += this.line(t + 2, 'type: string');
-    return out;
+  // array
+  if (object.type[0]) {
+    return 'array';
   }
 
-  //TODO rename this function
-  getBlackboxType(key, t) {
-    const typeObj = {};
-    _.keys(this.schema).forEach((_key) => {
-      if(_key.includes(key + '.')) {
-        typeObj[_key.replace(/([^\.]|.(?=\$))*\./, '')] = this.schema[_key];
+  // else
+  return 'object';
+};
+
+const getSimpleType = (object) => {
+  if (object.type === Number) {
+    return object.decimal ? 'number' : 'integer';
+  }
+  return _.toLower(object.type.name);
+};
+
+const getArrayItemType = (object) => getType(_.extend(object, { type: object.type[0] }));
+
+const printArray = (arr) => {
+  let out = '[';
+  arr.forEach((item) => {
+    if (typeof item === 'string') {
+      out += `'${item}', `;
+    } else {
+      out += `${item}, `;
+    }
+  });
+  out = out.slice(0, -2);
+  out += ']';
+  return out;
+};
+
+export const writeParams = (t, config, name, _in, skipId) => {
+  let out = ``;
+  out += line(t, `${name}:`);
+  _.keys(config).forEach((key) => {
+    if (key !== '_id' || !skipId) {
+      out += line(t, `- name: ${key}`);
+      out += line(t + 2, `in: ${_in}`);
+      out += obj2Yaml(t + 2, config[key]);
+      if(!config[key].optional) {
+        out += line(t + 2, `required: true`);
       }
-    });
-    return (new YamlSchema(typeObj)).toYaml(t - 2);
-  }
-
-  getPropType(key, typeFun, t) {
-
-    let simpleTypes = ['String', 'Number', 'Boolean', 'Date'];
-
-    // empty
-    if(!typeFun) {
-      return ``
-    }
-
-    // array
-
-    // simple
-    if (_.indexOf(simpleTypes, typeFun.name) >= 0) {
-      return this.getSimpleType(key, typeFun, t);
-    }
-
-    // $ref
-    if (typeFun.schema) {
-      return (new YamlSchema(typeFun._schema)).toYaml(t-2);
-    }
-
-    // object literal
-    // TODO rename the getBlackboxType function
-    if (typeFun.name == 'Object') {
-      return this.getBlackboxType(key, t);
-    }
-    return this.getArrayType(key, typeFun, t);
-  }
-
-  getPropLabel(key, t) {
-    if (this.schema[key].label) {
-      return this.line(t, `description: ${this.schema[key].label.replace(/:/g, ';')}`);
-    }
-    return this.line(t, `description: No description provided`);
-  }
-
-  // schema, string => template literal
-  getProp(key, t) {
-    let out = ``;
-    out += this.getPropType(key, this.schema[key].type, t);
-    out += this.getPropLabel(key, t);
-    return out;
-  }
-
-  // schema => template literal
-  getProps(t) {
-    let out = this.line(t, `properties:`);
-    if (this._schema) {
-      this.schema = _.cloneDeep(this._schema);
-    }
-    _.keys(this.schema).forEach((key) => {
-      if (this.schema[key] &&   //non empty
-          !key.includes('.') && //not a subprop
-          !_.has(this.schema[key], 'blackbox') && //not a blackbox
-          !this.schema[key].hidden &&
-          !this.schema[key].hiddenAPI) {  // not hidden
-        out += this.line(t + 2, `${key}:`);
-        out += this.getProp(key, t + 4);
+      if(config[key].allowedValues) {
+        out += line(t + 2, `enum: ${printArray(config[key].allowedValues)}`);
       }
-    });
-    return out;
-  }
-
-  getReq(t) {
-    const reqs = [];
-    let out = ``;
-    _.keys(this.schema).forEach((key) => {
-      if (!this.schema[key] || key.includes('.')) { //skip if prop is empty or has dot
-        return ``;
-      }
-      if (!this.schema[key].optional) {
-        reqs.push(key);
-      }
-    });
-    if (reqs.length > 0) {
-      out += this.line(t, `required:`);
-      reqs.forEach((key) => {
-        out += this.line(t, `- ${key}`);
-      });
     }
-    return out;
-  }
-
-  // schema => template literal
-  toYaml(t) {
-    let out = ``;
-    //if(this.swag_name) {
-    //  out += this.line(t, `${this.swag_name}:`);
-    //}
-    out += this.line(t + 2, `type: object`);
-    out += this.getProps(t + 2);
-    out += this.getReq(t + 2);
-    return out;
-  }
-
-  toParams(t, _in, skipId) {
-    let out = ``;
-    _.keys(this.schema).forEach((key) => {
-      if (key !== '_id' || !skipId) {
-        out += this.line(t, `- name: ${key}`);
-        out += this.line(t + 2, `in: ${_in}`);
-        out += this.getProp(key, t + 2);
-        if(!this.schema[key].optional) {
-          out += this.line(t + 2, `required: true`);
-        }
-        if(this.schema[key].allowedValues) {
-          out += this.line(t + 2, `enum: [${this.schema[key].allowedValues}]`);
-        }
-      }
-    });
-    return out;
-  };
-
-  //fakery
-  static RegEx() {
-    return {Url: 'urlregex'};
+  });
+  return out;
+};
+/*
+//fakery
+static RegEx() {
+  return {Url: 'urlregex'};
   }
 
   static extendOptions(obj) {};
   static messages(obj) {};
 }
-
+*/
